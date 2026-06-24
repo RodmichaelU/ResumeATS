@@ -1,0 +1,26 @@
+# Python
+backend/.venv/
+backend/**/__pycache__/
+**/__pycache__/
+*.pyc
+backend/.env
+
+# hiring-agent runtime artifacts (per-job CWDs, never committed)
+backend/runtime/*
+!backend/runtime/.gitkeep
+!backend/runtime/jobs
+backend/runtime/jobs/*
+
+# hiring-agent's GitHub API response cache (its TemplateManager requires CWD to be
+# its own directory, so this is where its cache/ writes legitimately land — shared
+# across jobs, keyed by GitHub API URL, harmless to share)
+vendor/hiring-agent/cache/
+vendor/hiring-agent/resume_evaluations.csv
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# OS
+.DS_Store

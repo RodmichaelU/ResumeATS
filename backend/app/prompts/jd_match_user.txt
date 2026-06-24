@@ -1,0 +1,16 @@
+## Job Description
+
+{job_description}
+
+## Candidate Resume
+
+{resume_text}
+
+## Task
+
+Score how well this resume matches the job description on a scale of 0-100, where 100 means the candidate clearly meets all key requirements and 0 means there is no meaningful overlap.
+
+- matched_skills: specific skills/requirements from the job description that the resume clearly demonstrates.
+- missing_skills: specific skills/requirements from the job description that the resume does not clearly demonstrate.
+- rationale: a concise (2-4 sentence) explanation for the score.
+- recommendations: 1-5 concrete, actionable suggestions the candidate could follow to improve their match for this specific role.
