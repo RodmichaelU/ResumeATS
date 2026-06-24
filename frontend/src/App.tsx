@@ -5,6 +5,7 @@ import { ProgressView } from "./components/ProgressView";
 import { ResultsView } from "./components/ResultsView";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { HistoryView } from "./components/HistoryView";
+import { DemoView } from "./components/DemoView";
 import { checkHealth, submitEvaluation } from "./api/client";
 import { useTheme } from "./hooks/useTheme";
 import type { HealthResponse, JobStatusResponse } from "./types/api";
@@ -15,7 +16,7 @@ type ViewState =
   | { phase: "done"; result: JobStatusResponse }
   | { phase: "error"; message: string };
 
-type Page = "evaluator" | "history";
+type Page = "evaluator" | "history" | "demo";
 
 function App() {
   const { theme, toggleTheme } = useTheme();
@@ -83,6 +84,13 @@ function App() {
             onClick={() => setPage("history")}
           >
             History
+          </button>
+          <button
+            type="button"
+            className={page === "demo" ? "app-nav__tab app-nav__tab--active" : "app-nav__tab"}
+            onClick={() => setPage("demo")}
+          >
+            Demo
           </button>
         </nav>
         <button
@@ -154,6 +162,12 @@ function App() {
       {page === "history" && (
         <main>
           <HistoryView />
+        </main>
+      )}
+
+      {page === "demo" && (
+        <main>
+          <DemoView />
         </main>
       )}
     </div>

@@ -164,6 +164,26 @@ git commit -m "Update hiring-agent submodule"
 Re-run the verification steps below afterward, since hiring-agent's internals (e.g. template paths,
 function signatures) could change between versions.
 
+## Deploying a demo (frontend only)
+
+The backend needs a persistently-running machine with Ollama (a real server, not serverless), so it
+can't be deployed to Netlify/Vercel as-is. The frontend has a built-in **Demo** tab that always works
+with no backend — it runs entirely on fixed sample data (`frontend/src/api/mockData.ts`), independent of
+the Evaluate/History tabs. Dropping a PDF and submitting there plays through a short simulated progress
+sequence and shows fixed sample ATS/JD-match results; there are also instant "jump to a sample result"
+shortcuts.
+
+1. Push this repo to GitHub (with the submodule — Vercel/Netlify will run `git submodule update --init`
+   automatically as long as `.gitmodules` is committed).
+2. Create a new project on [Vercel](https://vercel.com) (or Netlify) from the repo, with:
+   - **Root directory**: `frontend`
+   - **Build command**: `npm run build` (default)
+   - **Output directory**: `dist` (default for Vite)
+3. Deploy. The **Demo** tab works immediately, no configuration needed. The **Evaluate**/**History**
+   tabs will show a "backend unreachable" error unless you also set `VITE_API_BASE_URL` to a real backend
+   you're running somewhere with a persistent process — your own machine exposed via a tunnel (e.g.
+   Cloudflare Tunnel), or a VM with Ollama installed.
+
 ## Verifying changes
 
 1. `ollama serve` running with the configured model pulled.

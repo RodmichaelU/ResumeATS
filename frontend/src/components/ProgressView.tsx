@@ -11,11 +11,19 @@ const STAGE_LABELS: Record<string, string> = {
 
 interface ProgressViewProps {
   jobId: string;
+  pollFn?: (jobId: string) => Promise<JobStatusResponse>;
+  hint?: string;
   onDone: (result: JobStatusResponse) => void;
   onError: (message: string) => void;
 }
 
-export function ProgressView({ jobId, onDone, onError }: ProgressViewProps) {
+export function ProgressView({
+  jobId,
+  pollFn = pollJob,
+  hint = "This runs entirely on your local Ollama model and can take a few minutes, especially on the first run.",
+  onDone,
+  onError,
+}: ProgressViewProps) {
   const [stage, setStage] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef(Date.now());
@@ -27,7 +35,7 @@ export function ProgressView({ jobId, onDone, onError }: ProgressViewProps) {
     const pollInterval = setInterval(async () => {
       if (stopped) return;
       try {
-        const status = await pollJob(jobId);
+        const status = await pollFn(jobId);
         if (stopped) return;
         failureCount = 0;
         setStage(status.stage);
@@ -59,7 +67,7 @@ export function ProgressView({ jobId, onDone, onError }: ProgressViewProps) {
       clearInterval(pollInterval);
       clearInterval(tickInterval);
     };
-  }, [jobId, onDone, onError]);
+  }, [jobId, pollFn, onDone, onError]);
 
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
@@ -73,10 +81,7 @@ export function ProgressView({ jobId, onDone, onError }: ProgressViewProps) {
       <p className="progress-elapsed">
         Elapsed: {minutes}:{seconds.toString().padStart(2, "0")}
       </p>
-      <p className="progress-hint">
-        This runs entirely on your local Ollama model and can take a few minutes,
-        especially on the first run.
-      </p>
+      <p className="progress-hint">{hint}</p>
     </div>
   );
 }
