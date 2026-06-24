@@ -26,6 +26,10 @@ ResumeATS/
   evaluation, 1 for JD matching, plus an optional GitHub-enrichment call if the resume has a GitHub
   link). On a small local model this typically takes **1-3 minutes**. The UI polls a job status endpoint
   and shows progress so this doesn't look stuck.
+- Every successfully completed evaluation is saved to a small local SQLite database
+  (`backend/runtime/history.db`, gitignored) — resume text, job description, and both scores; the
+  original PDF is **not** retained. Browse past evaluations from the **History** tab. Failed evaluations
+  are not recorded.
 
 ## Running it
 

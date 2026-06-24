@@ -1,12 +1,17 @@
+import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, UploadFile
 
+from app.history_store import save_evaluation
 from app.jobs import job_store
 from app.schemas import CreateJobResponse, JobStatusResponse
 from app.services.hiring_agent_runner import HiringAgentError, run_hiring_agent
 from app.services.jd_match import score_jd_match
 from app.settings import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -38,7 +43,7 @@ async def create_evaluation(
     pdf_path = job_dir / "resume.pdf"
     pdf_path.write_bytes(contents)
 
-    background_tasks.add_task(_run_job, job.job_id, pdf_path, job_dir, job_description)
+    background_tasks.add_task(_run_job, job.job_id, pdf_path, job_dir, job_description, filename)
 
     return CreateJobResponse(job_id=job.job_id, status=job.status)
 
@@ -51,7 +56,13 @@ async def get_evaluation(job_id: str) -> JobStatusResponse:
     return job.to_response()
 
 
-async def _run_job(job_id: str, pdf_path: Path, job_dir: Path, job_description: str) -> None:
+async def _run_job(
+    job_id: str,
+    pdf_path: Path,
+    job_dir: Path,
+    job_description: str,
+    original_filename: str,
+) -> None:
     try:
         ats_output = await run_hiring_agent(job_id, pdf_path, job_dir)
         await job_store.set_ats_result(job_id, ats_output["evaluation"])
@@ -62,5 +73,21 @@ async def _run_job(job_id: str, pdf_path: Path, job_dir: Path, job_description: 
         await job_store.complete(job_id, jd_match)
     except HiringAgentError as exc:
         await job_store.fail(job_id, str(exc))
+        return
     except Exception as exc:  # noqa: BLE001 - surface any unexpected failure to the job record
         await job_store.fail(job_id, f"Unexpected error: {exc}")
+        return
+
+    try:
+        await save_evaluation(
+            id=job_id,
+            created_at=datetime.now(timezone.utc),
+            candidate_name=ats_output.get("candidate_name"),
+            original_filename=original_filename,
+            job_description=job_description,
+            resume_text=ats_output["resume_text"],
+            ats_json=ats_output["evaluation"],
+            jd_match=jd_match,
+        )
+    except Exception:  # noqa: BLE001 - history is a secondary concern, don't fail the job over it
+        logger.exception("Failed to save evaluation %s to history", job_id)

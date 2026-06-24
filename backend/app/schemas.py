@@ -40,3 +40,33 @@ class HealthResponse(BaseModel):
     ollama_reachable: bool
     model_available: bool
     model: str
+
+
+class HistorySummary(BaseModel):
+    id: str
+    created_at: datetime
+    candidate_name: Optional[str] = None
+    original_filename: Optional[str] = None
+    ats_total_score: float
+    ats_max_score: float
+    jd_match_score: float
+
+
+class HistoryListResponse(BaseModel):
+    items: list[HistorySummary]
+    total: int
+    limit: int
+    offset: int
+
+
+class HistoryDetail(BaseModel):
+    id: str
+    created_at: datetime
+    candidate_name: Optional[str] = None
+    original_filename: Optional[str] = None
+    job_description: str
+    resume_text: str
+    ats_total_score: float
+    ats_max_score: float
+    ats: dict[str, Any]
+    jd_match: JdMatchResult

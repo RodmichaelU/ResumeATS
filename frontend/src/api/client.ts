@@ -1,4 +1,10 @@
-import type { CreateJobResponse, HealthResponse, JobStatusResponse } from "../types/api";
+import type {
+  CreateJobResponse,
+  HealthResponse,
+  HistoryDetail,
+  HistoryListResponse,
+  JobStatusResponse,
+} from "../types/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -39,4 +45,21 @@ export async function submitEvaluation(
 export async function pollJob(jobId: string): Promise<JobStatusResponse> {
   const res = await fetch(`${API_BASE_URL}/api/evaluate/${jobId}`);
   return handleResponse<JobStatusResponse>(res);
+}
+
+export async function listHistory(limit = 20, offset = 0): Promise<HistoryListResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/history?limit=${limit}&offset=${offset}`);
+  return handleResponse<HistoryListResponse>(res);
+}
+
+export async function getHistoryDetail(id: string): Promise<HistoryDetail> {
+  const res = await fetch(`${API_BASE_URL}/api/history/${id}`);
+  return handleResponse<HistoryDetail>(res);
+}
+
+export async function deleteHistoryEntry(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/history/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    throw new Error(res.statusText);
+  }
 }

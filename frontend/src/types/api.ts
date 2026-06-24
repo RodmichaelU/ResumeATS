@@ -69,3 +69,33 @@ export interface HealthResponse {
   model_available: boolean;
   model: string;
 }
+
+export interface HistorySummary {
+  id: string;
+  created_at: string;
+  candidate_name: string | null;
+  original_filename: string | null;
+  ats_total_score: number;
+  ats_max_score: number;
+  jd_match_score: number;
+}
+
+export interface HistoryListResponse {
+  items: HistorySummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface HistoryDetail {
+  id: string;
+  created_at: string;
+  candidate_name: string | null;
+  original_filename: string | null;
+  job_description: string;
+  resume_text: string;
+  ats_total_score: number;
+  ats_max_score: number;
+  ats: AtsEvaluation;
+  jd_match: JdMatchResult;
+}

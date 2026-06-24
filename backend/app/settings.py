@@ -27,5 +27,9 @@ class Settings(BaseSettings):
     def runtime_jobs_dir(self) -> Path:
         return BACKEND_DIR / "runtime" / "jobs"
 
+    @property
+    def history_db_path(self) -> Path:
+        return BACKEND_DIR / "runtime" / "history.db"
+
 
 settings = Settings()

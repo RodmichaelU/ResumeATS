@@ -4,6 +4,7 @@ import { UploadForm } from "./components/UploadForm";
 import { ProgressView } from "./components/ProgressView";
 import { ResultsView } from "./components/ResultsView";
 import { ErrorBanner } from "./components/ErrorBanner";
+import { HistoryView } from "./components/HistoryView";
 import { checkHealth, submitEvaluation } from "./api/client";
 import type { HealthResponse, JobStatusResponse } from "./types/api";
 
@@ -13,7 +14,10 @@ type ViewState =
   | { phase: "done"; result: JobStatusResponse }
   | { phase: "error"; message: string };
 
+type Page = "evaluator" | "history";
+
 function App() {
+  const [page, setPage] = useState<Page>("evaluator");
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [view, setView] = useState<ViewState>({ phase: "idle" });
@@ -62,56 +66,83 @@ function App() {
         </p>
       </header>
 
-      {healthError && (
-        <ErrorBanner
-          title="Backend unreachable"
-          message={healthError}
-          action={{ label: "Retry", onClick: refreshHealth }}
-        />
+      <nav className="app-nav">
+        <button
+          type="button"
+          className={page === "evaluator" ? "app-nav__tab app-nav__tab--active" : "app-nav__tab"}
+          onClick={() => setPage("evaluator")}
+        >
+          Evaluate
+        </button>
+        <button
+          type="button"
+          className={page === "history" ? "app-nav__tab app-nav__tab--active" : "app-nav__tab"}
+          onClick={() => setPage("history")}
+        >
+          History
+        </button>
+      </nav>
+
+      {page === "evaluator" && (
+        <>
+          {healthError && (
+            <ErrorBanner
+              title="Backend unreachable"
+              message={healthError}
+              action={{ label: "Retry", onClick: refreshHealth }}
+            />
+          )}
+
+          {health && !health.ollama_reachable && (
+            <ErrorBanner
+              title="Ollama is not running"
+              message="Start Ollama (run `ollama serve`, or open the Ollama app) and try again."
+              action={{ label: "Retry", onClick: refreshHealth }}
+            />
+          )}
+
+          {health && health.ollama_reachable && !health.model_available && (
+            <ErrorBanner
+              title="Model not pulled"
+              message={`Run "ollama pull ${health.model}" and try again.`}
+              action={{ label: "Retry", onClick: refreshHealth }}
+            />
+          )}
+
+          <main>
+            {view.phase === "idle" && (
+              <UploadForm
+                disabled={!ollamaReady}
+                disabledReason={
+                  !ollamaReady ? "Resolve the Ollama issue above before submitting." : undefined
+                }
+                onSubmit={handleSubmit}
+              />
+            )}
+            {view.phase === "polling" && (
+              <ProgressView
+                jobId={view.jobId}
+                onDone={(result) => setView({ phase: "done", result })}
+                onError={(message) => setView({ phase: "error", message })}
+              />
+            )}
+            {view.phase === "done" && <ResultsView result={view.result} onReset={handleReset} />}
+            {view.phase === "error" && (
+              <ErrorBanner
+                title="Evaluation failed"
+                message={view.message}
+                action={{ label: "Try again", onClick: handleReset }}
+              />
+            )}
+          </main>
+        </>
       )}
 
-      {health && !health.ollama_reachable && (
-        <ErrorBanner
-          title="Ollama is not running"
-          message="Start Ollama (run `ollama serve`, or open the Ollama app) and try again."
-          action={{ label: "Retry", onClick: refreshHealth }}
-        />
+      {page === "history" && (
+        <main>
+          <HistoryView />
+        </main>
       )}
-
-      {health && health.ollama_reachable && !health.model_available && (
-        <ErrorBanner
-          title="Model not pulled"
-          message={`Run "ollama pull ${health.model}" and try again.`}
-          action={{ label: "Retry", onClick: refreshHealth }}
-        />
-      )}
-
-      <main>
-        {view.phase === "idle" && (
-          <UploadForm
-            disabled={!ollamaReady}
-            disabledReason={
-              !ollamaReady ? "Resolve the Ollama issue above before submitting." : undefined
-            }
-            onSubmit={handleSubmit}
-          />
-        )}
-        {view.phase === "polling" && (
-          <ProgressView
-            jobId={view.jobId}
-            onDone={(result) => setView({ phase: "done", result })}
-            onError={(message) => setView({ phase: "error", message })}
-          />
-        )}
-        {view.phase === "done" && <ResultsView result={view.result} onReset={handleReset} />}
-        {view.phase === "error" && (
-          <ErrorBanner
-            title="Evaluation failed"
-            message={view.message}
-            action={{ label: "Try again", onClick: handleReset }}
-          />
-        )}
-      </main>
     </div>
   );
 }

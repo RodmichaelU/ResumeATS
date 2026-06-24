@@ -16,6 +16,8 @@ export function HiringAgentScoreCard({ evaluation }: { evaluation: AtsEvaluation
   const categoryMax = categoryEntries.reduce((sum, [, cat]) => sum + cat.max, 0);
   const bonus = evaluation.bonus_points?.total ?? 0;
   const deductions = evaluation.deductions?.total ?? 0;
+  // Mirrored in backend/app/history_store.py's compute_ats_total() for the history
+  // list view's denormalized score column — keep both in sync if this changes.
   const maxPossible = categoryMax + 20;
   const total = Math.min(Math.max(categoryTotal + bonus - deductions, 0), maxPossible);
 
