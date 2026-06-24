@@ -6,6 +6,7 @@ import { ResultsView } from "./components/ResultsView";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { HistoryView } from "./components/HistoryView";
 import { checkHealth, submitEvaluation } from "./api/client";
+import { useTheme } from "./hooks/useTheme";
 import type { HealthResponse, JobStatusResponse } from "./types/api";
 
 type ViewState =
@@ -17,6 +18,7 @@ type ViewState =
 type Page = "evaluator" | "history";
 
 function App() {
+  const { theme, toggleTheme } = useTheme();
   const [page, setPage] = useState<Page>("evaluator");
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
@@ -66,22 +68,33 @@ function App() {
         </p>
       </header>
 
-      <nav className="app-nav">
+      <div className="app-toolbar">
+        <nav className="app-nav">
+          <button
+            type="button"
+            className={page === "evaluator" ? "app-nav__tab app-nav__tab--active" : "app-nav__tab"}
+            onClick={() => setPage("evaluator")}
+          >
+            Evaluate
+          </button>
+          <button
+            type="button"
+            className={page === "history" ? "app-nav__tab app-nav__tab--active" : "app-nav__tab"}
+            onClick={() => setPage("history")}
+          >
+            History
+          </button>
+        </nav>
         <button
           type="button"
-          className={page === "evaluator" ? "app-nav__tab app-nav__tab--active" : "app-nav__tab"}
-          onClick={() => setPage("evaluator")}
+          className="theme-toggle"
+          onClick={toggleTheme}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         >
-          Evaluate
+          {theme === "dark" ? "☀️" : "🌙"}
         </button>
-        <button
-          type="button"
-          className={page === "history" ? "app-nav__tab app-nav__tab--active" : "app-nav__tab"}
-          onClick={() => setPage("history")}
-        >
-          History
-        </button>
-      </nav>
+      </div>
 
       {page === "evaluator" && (
         <>
