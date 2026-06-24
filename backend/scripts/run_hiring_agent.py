@@ -42,19 +42,80 @@ def main() -> None:
         from evaluator import ResumeEvaluator
         from transform import convert_json_resume_to_text, convert_github_data_to_text
         from prompt import DEFAULT_MODEL, MODEL_PARAMETERS
+        from models import Basics, JSONResume
     except ImportError as exc:
         fail(f"Could not import hiring-agent modules from {args.hiring_agent_dir}: {exc}")
         return
 
     emit_stage("parsing_resume")
     try:
-        resume_data = PDFHandler().extract_json_from_pdf(args.pdf)
-    except Exception as exc:  # hiring-agent's own extraction failures
+        pdf_handler = PDFHandler()
+        text_content = pdf_handler.extract_text_from_pdf(args.pdf)
+    except Exception as exc:
         fail(f"Resume parsing failed: {exc}")
         return
 
-    if resume_data is None:
+    if not text_content:
+        fail("Resume parsing failed: no text could be extracted from the PDF")
+        return
+
+    # hiring-agent's own extract_json_from_pdf() aborts the ENTIRE resume if even one
+    # section's LLM call comes back empty (small local models occasionally return "{}"
+    # for a single section while every other section extracts fine). We retry once per
+    # section and otherwise degrade gracefully -- skipping just that section instead of
+    # failing the whole evaluation -- using hiring-agent's own unmodified per-section
+    # extractor methods (the same ones its _extract_all_sections_separately calls).
+    section_extractors = [
+        ("basics", pdf_handler.extract_basics_section),
+        ("work", pdf_handler.extract_work_section),
+        ("education", pdf_handler.extract_education_section),
+        ("skills", pdf_handler.extract_skills_section),
+        ("projects", pdf_handler.extract_projects_section),
+        ("awards", pdf_handler.extract_awards_section),
+    ]
+
+    complete_resume = {
+        "basics": None,
+        "work": None,
+        "volunteer": None,
+        "education": None,
+        "awards": None,
+        "certificates": None,
+        "publications": None,
+        "skills": None,
+        "languages": None,
+        "interests": None,
+        "references": None,
+        "projects": None,
+        "meta": None,
+    }
+
+    for section_name, extractor in section_extractors:
+        section_data = extractor(text_content) or extractor(text_content)
+        if section_data:
+            complete_resume.update(section_data)
+        else:
+            print(
+                f"##WARN## {section_name} section could not be extracted after retry, continuing without it",
+                file=sys.stderr,
+                flush=True,
+            )
+
+    if not any(v for key, v in complete_resume.items() if key != "meta"):
         fail("Resume parsing failed: no data could be extracted from the PDF")
+        return
+
+    if complete_resume.get("basics") and isinstance(complete_resume["basics"], dict):
+        try:
+            complete_resume["basics"] = Basics(**complete_resume["basics"])
+        except Exception as exc:
+            print(f"##WARN## Could not build basics object: {exc}", file=sys.stderr, flush=True)
+            complete_resume["basics"] = None
+
+    try:
+        resume_data = JSONResume(**complete_resume)
+    except Exception as exc:
+        fail(f"Resume parsing failed: {exc}")
         return
 
     github_data: dict = {}

@@ -121,7 +121,14 @@ Open the URL Vite prints (default `http://localhost:5173`).
   left waiting on the dropped connection. Restart it: `brew services restart ollama` (or `ollama serve`
   again).
 - **A job fails immediately with "no data could be extracted from the PDF"** — hiring-agent uses
-  PyMuPDF for text extraction; scanned/image-only PDFs with no extractable text won't work.
+  PyMuPDF for text extraction; scanned/image-only PDFs with no extractable text won't work. If text
+  extraction itself succeeded but every section still failed, it usually means the local model is
+  struggling with this resume — try a larger model (e.g. `gemma3:12b`).
+- **A job is slow or stuck right after a GitHub profile link is detected** — hiring-agent makes one
+  GitHub API call per repo to enrich the evaluation. Unauthenticated calls are capped at 60/hour, which
+  exhausts quickly for profiles with several repos; hiring-agent will proactively sleep until the quota
+  resets (logged, but not surfaced in the UI's stage label). Set `GITHUB_TOKEN` in `backend/.env` to
+  raise this to 5000/hour (see the config reference below).
 - Each job's working files (uploaded PDF, hiring-agent's result JSON) are kept under
   `backend/runtime/jobs/<job_id>/` for inspection/debugging — they're gitignored and safe to delete.
 
@@ -135,6 +142,7 @@ Open the URL Vite prints (default `http://localhost:5173`).
 | `HIRING_AGENT_DIR`      | `../vendor/hiring-agent`       | Path to the vendored submodule                            |
 | `JOB_TIMEOUT_SECONDS`   | `600`                          | Max time before a job is marked failed                    |
 | `CORS_ORIGIN`           | `http://localhost:5173`        | Allowed frontend origin                                   |
+| `GITHUB_TOKEN`          | unset                          | Optional; raises GitHub API rate limit from 60/hr to 5000/hr for the GitHub-enrichment step |
 
 ## Updating hiring-agent
 

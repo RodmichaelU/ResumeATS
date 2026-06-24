@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     hiring_agent_dir: str = "../vendor/hiring-agent"
     job_timeout_seconds: int = 600
     cors_origin: str = "http://localhost:5173"
+    github_token: str | None = None
 
     @property
     def hiring_agent_path(self) -> Path:

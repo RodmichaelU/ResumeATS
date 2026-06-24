@@ -28,6 +28,10 @@ async def run_hiring_agent(job_id: str, pdf_path: Path, job_dir: Path) -> dict:
     env = os.environ.copy()
     env["LLM_PROVIDER"] = settings.llm_provider
     env["DEFAULT_MODEL"] = settings.default_model
+    if settings.github_token:
+        # github.py reads this directly from the environment to raise GitHub's
+        # unauthenticated rate limit (60/hr) to 5000/hr for the enrichment step.
+        env["GITHUB_TOKEN"] = settings.github_token
 
     proc = await asyncio.create_subprocess_exec(
         sys.executable,
