@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -17,8 +18,52 @@ class HiringAgentError(Exception):
     pass
 
 
+def _run_subprocess(
+    cmd: list[str],
+    cwd: str,
+    env: dict,
+    loop: asyncio.AbstractEventLoop,
+    job_id: str,
+    timeout: int,
+) -> tuple[int, str | None]:
+    """Blocking subprocess runner executed in a thread pool worker."""
+    proc = subprocess.Popen(
+        cmd,
+        cwd=cwd,
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+    error_message: str | None = None
+
+    try:
+        for raw_line in proc.stderr:
+            line = raw_line.strip()
+            if line.startswith("##STAGE## "):
+                stage = line.removeprefix("##STAGE## ").strip()
+                if stage in _VALID_STAGES:
+                    asyncio.run_coroutine_threadsafe(
+                        job_store.set_stage(job_id, stage),  # type: ignore[arg-type]
+                        loop,
+                    )
+            elif line.startswith("##ERROR## "):
+                error_message = line.removeprefix("##ERROR## ").strip()
+
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        raise HiringAgentError(f"ATS evaluation timed out after {timeout}s")
+
+    return proc.returncode, error_message
+
+
 async def run_hiring_agent(job_id: str, pdf_path: Path, job_dir: Path) -> dict:
-    """Run the vendored hiring-agent pipeline on a resume PDF in its own subprocess.
+    """Run the vendored hiring-agent pipeline on a resume PDF in a thread worker.
 
     Returns the parsed contents of the wrapper script's --out JSON:
     {"evaluation": <EvaluationData dict>, "resume_text": str, "candidate_name": str | None}
@@ -29,58 +74,29 @@ async def run_hiring_agent(job_id: str, pdf_path: Path, job_dir: Path) -> dict:
     env["LLM_PROVIDER"] = settings.llm_provider
     env["DEFAULT_MODEL"] = settings.default_model
     if settings.github_token:
-        # github.py reads this directly from the environment to raise GitHub's
-        # unauthenticated rate limit (60/hr) to 5000/hr for the enrichment step.
         env["GITHUB_TOKEN"] = settings.github_token
 
-    proc = await asyncio.create_subprocess_exec(
+    cmd = [
         sys.executable,
         str(WRAPPER_SCRIPT),
-        "--pdf",
-        str(pdf_path),
-        "--out",
-        str(out_path),
-        "--hiring-agent-dir",
+        "--pdf", str(pdf_path),
+        "--out", str(out_path),
+        "--hiring-agent-dir", str(settings.hiring_agent_path),
+    ]
+
+    loop = asyncio.get_running_loop()
+
+    returncode, error_message = await asyncio.to_thread(
+        _run_subprocess,
+        cmd,
         str(settings.hiring_agent_path),
-        # hiring-agent's TemplateManager loads Jinja templates from a relative
-        # "prompts/templates" path resolved against CWD, with no override hook —
-        # PDFHandler/ResumeEvaluator/github.py all construct it with defaults. So
-        # the subprocess CWD must be hiring-agent's own directory, not the job dir,
-        # or every template render silently fails. pdf_path/out_path are absolute,
-        # so this doesn't affect where the PDF is read from or the result written.
-        cwd=str(settings.hiring_agent_path),
-        env=env,
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.PIPE,
+        env,
+        loop,
+        job_id,
+        settings.job_timeout_seconds,
     )
 
-    error_message: str | None = None
-
-    async def read_stderr() -> None:
-        nonlocal error_message
-        assert proc.stderr is not None
-        async for raw_line in proc.stderr:
-            line = raw_line.decode("utf-8", errors="replace").strip()
-            if line.startswith("##STAGE## "):
-                stage = line.removeprefix("##STAGE## ").strip()
-                if stage in _VALID_STAGES:
-                    await job_store.set_stage(job_id, stage)  # type: ignore[arg-type]
-            elif line.startswith("##ERROR## "):
-                error_message = line.removeprefix("##ERROR## ").strip()
-
-    try:
-        await asyncio.wait_for(
-            asyncio.gather(proc.wait(), read_stderr()),
-            timeout=settings.job_timeout_seconds,
-        )
-    except asyncio.TimeoutError:
-        proc.kill()
-        await proc.wait()
-        raise HiringAgentError(
-            f"ATS evaluation timed out after {settings.job_timeout_seconds}s"
-        )
-
-    if proc.returncode != 0:
+    if returncode != 0:
         raise HiringAgentError(error_message or "hiring-agent process failed unexpectedly")
 
     if not out_path.exists():
