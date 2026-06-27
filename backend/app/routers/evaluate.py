@@ -75,7 +75,8 @@ async def _run_job(
         await job_store.fail(job_id, str(exc))
         return
     except Exception as exc:  # noqa: BLE001 - surface any unexpected failure to the job record
-        await job_store.fail(job_id, f"Unexpected error: {exc}")
+        logger.exception("Unexpected error in job %s", job_id)
+        await job_store.fail(job_id, f"Unexpected error ({type(exc).__name__}): {exc}")
         return
 
     try:
